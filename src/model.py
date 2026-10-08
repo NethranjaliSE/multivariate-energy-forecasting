@@ -95,6 +95,39 @@ def build_stacked_lstm(window: int, n_features: int, units: int = 64, second_uni
     return _finish("stacked_lstm", inputs, x, dense_units, dropout, learning_rate)
 
 
+def build_ensemble(members: list, y_mean: float, y_std: float,
+                   name: str = "cnn_lstm_ensemble") -> keras.Model:
+    """Combine trained models into one model that outputs Wh directly.
+
+    Each member predicts the standardised log target. Inside the ensemble,
+    every member's output is converted back to Wh, and the three Wh values
+    are averaged:
+
+        Wh = exp(prediction * y_std + y_mean) - 1
+
+    Only built-in Keras layers are used (Rescaling, Activation, Average), so
+    the whole ensemble saves to, and loads from, a single .keras file.
+
+    Parameters
+    ----------
+    members : list of keras.Model
+        Trained models with identical input shapes.
+    y_mean, y_std : float
+        The training-set statistics used to standardise the log target.
+    """
+    inputs = keras.Input(shape=tuple(members[0].inputs[0].shape[1:]))
+    member_outputs = []
+    for i, member in enumerate(members):
+        member.name = f"member_{i + 1}"  # layer names must be unique inside one model
+        x = member(inputs)
+        x = layers.Rescaling(scale=float(y_std), offset=float(y_mean), name=f"to_log_{i + 1}")(x)
+        x = layers.Activation("exponential", name=f"exp_{i + 1}")(x)
+        x = layers.Rescaling(scale=1.0, offset=-1.0, name=f"to_wh_{i + 1}")(x)
+        member_outputs.append(x)
+    outputs = layers.Average(name="average_wh")(member_outputs)
+    return keras.Model(inputs, outputs, name=name)
+
+
 def default_callbacks(patience: int = 10) -> list:
     """Early stopping and learning-rate reduction, both based on validation loss.
 
