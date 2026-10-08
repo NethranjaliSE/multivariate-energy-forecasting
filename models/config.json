@@ -1,0 +1,15 @@
+{
+  "selected_features": [
+    "app_lag_1",
+    "app_diff_1",
+    "app_roll_mean_3h",
+    "hour_cos",
+    "hour_sin",
+    "app_lag_3",
+    "app_roll_mean_1h",
+    "NSM",
+    "app_roll_std_3h",
+    "app_lag_2"
+  ],
+  "window": 12
+}
