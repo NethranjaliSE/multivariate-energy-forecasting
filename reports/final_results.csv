@@ -1,0 +1,7 @@
+model,MAE,RMSE,MAPE %,R2
+Naive (last value),26.05,65.19,21.86,0.45
+Linear Regression,27.26,66.49,22.12,0.43
+Random Forest,26.51,58.3,23.19,0.56
+LSTM,23.41,56.78,19.38,0.58
+CNN-LSTM (before optimisation),23.7,57.55,19.72,0.57
+CNN-LSTM ensemble (after optimisation),22.8,55.71,19.01,0.6
