@@ -56,6 +56,52 @@ def to_wh(log_values) -> np.ndarray:
     return np.expm1(np.asarray(log_values))
 
 
+def make_sequences(X_parts, y_parts, window: int):
+    """Turn feature tables into overlapping windows for a recurrent model.
+
+    Each sample is the ``window`` most recent feature rows up to and
+    including row t, and its label is the target at row t. Every feature
+    row is already built only from information available before its own
+    timestamp, so a window never contains the value being predicted.
+
+    The parts are joined in time order before the windows are cut, so the
+    first validation and test samples can use the rows just before them as
+    history. Only past inputs are shared; no target crosses a split.
+
+    Parameters
+    ----------
+    X_parts : list of pd.DataFrame
+        Scaled feature tables in time order, e.g. [X_train, X_val, X_test].
+    y_parts : list of pd.Series
+        Matching targets, in the same order.
+    window : int
+        Number of 10-minute steps in each input sequence.
+
+    Returns
+    -------
+    list of (np.ndarray, np.ndarray)
+        One (X, y) pair per part. X has shape (samples, window, features).
+        The first ``window - 1`` rows of the first part are dropped because
+        they lack a full history.
+    """
+    X_all = np.concatenate([part.to_numpy(dtype="float32") for part in X_parts])
+    y_all = np.concatenate([part.to_numpy(dtype="float32") for part in y_parts])
+
+    # Windows ending at every row from (window - 1) onwards.
+    windows = np.lib.stride_tricks.sliding_window_view(X_all, window, axis=0)
+    windows = windows.transpose(0, 2, 1)  # (samples, window, features)
+    end_rows = np.arange(window - 1, len(X_all))
+
+    results = []
+    start = 0
+    for part in X_parts:
+        stop = start + len(part)
+        mask = (end_rows >= start) & (end_rows < stop)
+        results.append((np.ascontiguousarray(windows[mask]), y_all[end_rows[mask]]))
+        start = stop
+    return results
+
+
 def scale_features(X_train: pd.DataFrame, X_val: pd.DataFrame, X_test: pd.DataFrame):
     """Standardise features to zero mean and unit variance.
 
